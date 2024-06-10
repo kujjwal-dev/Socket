@@ -2,8 +2,10 @@ import express from "express";
 import { config } from "dotenv";
 import { Server } from "socket.io";
 import { createServer } from "http";
+import jwt from "jsonwebtoken";
+import cookieParser from "cookie-parser";
 
-
+const secretKeyJWT = "dsaadsdassaddasdasdas";
 const app = express();
 
 config({ path: "./config.env"});
@@ -24,6 +26,42 @@ const io = new Server(server , {
 app.get("/", (req,res) => {
     res.send("hello world");
 })
+
+app.get("/login", (req,res) => {
+  const token = jwt.sign({ _id:"asdsadsadasdsadsaads"} , secretKeyJWT);
+
+  res
+  .cookie("token", token , {httpOnly:false , secure: true , sameSite: "none" })
+  .json({
+    message: "Login Success"
+  })
+})
+
+const user = false;
+
+io.use((socket, next) => {
+    cookieParser()(socket.request, socket.request.res, (err) => {
+        if (err) {
+            return next(err);
+        }
+
+        const token = socket.request.cookies.token;
+
+        if (!token) {
+            return next(new Error("Authentication Error: Token not found"));
+        }
+
+        jwt.verify(token, secretKeyJWT, (err, decoded) => {
+            if (err) {
+                return next(new Error("Authentication Error: Invalid token"));
+            }
+
+            socket.request.user = decoded; // Attach decoded token to the request for further use
+            next();
+        });
+    });
+});
+
 
 io.on("connection" , (socket) => {
     console.log("User Connected", socket.id);
